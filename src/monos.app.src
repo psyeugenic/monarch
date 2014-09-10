@@ -1,0 +1,12 @@
+{application, monos,
+ [
+  {description, ""},
+  {vsn, "1.0"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { monos_app, []}},
+  {env, []}
+ ]}.
