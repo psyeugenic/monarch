@@ -1,22 +1,22 @@
 %%
 %% Copyright (C) 2014 Björn-Egil Dahlberg
 %%
-%% File:    monos.erl
+%% File:    monarch.erl
 %% Author:  Björn-Egil Dahlberg
 %% Created: 2014-09-11
 %%
 
--module(monos).
+-module(monarch).
 -export([nprocs/0, avg1/0, avg5/0, avg15/0, util/0, util/1]).
 -export([go/0]).
 
--define(SERVICE, monos_service).
+-define(SERVICE, monarch_service).
 
 go() ->
-    [monos_lib:machine(),
-     monos_lib:memory(),
-     monos_lib:disks(),
-     monos_lib:loadavg()].
+    [monarch_lib:machine(),
+     monarch_lib:memory(),
+     monarch_lib:disks(),
+     monarch_lib:loadavg()].
 
 nprocs()   -> call(nprocs).
 avg1()     -> call(avg1).

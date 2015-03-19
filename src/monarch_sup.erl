@@ -1,11 +1,11 @@
 %%
 %% Copyright (C) 2014 Björn-Egil Dahlberg
 %%
-%% File:    monos_sup.erl
+%% File:    monarch_sup.erl
 %% Author:  Björn-Egil Dahlberg
 %% Created: 2014-09-11
 %%
--module(monos_sup).
+-module(monarch_sup).
 
 -behaviour(supervisor).
 
@@ -31,5 +31,6 @@ start_link() ->
 
 init([]) ->
     RestartStrategy = {one_for_one, 5, 10},
-    Children = [?CHILD(monos_service, worker)],
+    Children = [?CHILD(monarch_service, worker),
+		?CHILD(monarch_disk_service, worker)],
     {ok, {RestartStrategy, Children}}.

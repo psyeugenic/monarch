@@ -1,11 +1,11 @@
 %%
 %% Copyright (C) 2014 Björn-Egil Dahlberg
 %%
-%% File:    monos_service.erl
+%% File:    monarch_service.erl
 %% Author:  Björn-Egil Dahlberg
 %% Created: 2014-09-11
 %%
--module(monos_service).
+-module(monarch_service).
 
 -behaviour(gen_server).
 

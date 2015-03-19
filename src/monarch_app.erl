@@ -1,11 +1,11 @@
 %%
 %% Copyright (C) 2014 Björn-Egil Dahlberg
 %%
-%% File:    monos_app.erl
+%% File:    monarch_app.erl
 %% Author:  Björn-Egil Dahlberg
 %% Created: 2014-09-11
 %%
--module(monos_app).
+-module(monarch_app).
 
 -behaviour(application).
 
@@ -17,7 +17,7 @@
 %% ===================================================================
 
 start(_StartType, _StartArgs) ->
-    monos_sup:start_link().
+    monarch_sup:start_link().
 
 stop(_State) ->
     ok.

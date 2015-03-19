@@ -1,7 +1,7 @@
 /* 
  * Copyright (C) 2014 Björn-Egil Dahlberg
  *
- * File:    libmonos.c
+ * File:    libmonarch.c
  * Author:  Björn-Egil Dahlberg
  * Created: 2014-09-11
  */
@@ -116,7 +116,7 @@ static unsigned int mib_code[MIB_ENTRIES];
  *
  */
 
-static ERL_NIF_TERM monos_machine(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+static ERL_NIF_TERM monarch_machine(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     int ix,mib[2];
     long val;
     size_t sz;
@@ -161,7 +161,7 @@ static ERL_NIF_TERM monos_machine(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
     return map;
 }
 
-/* monos_memory
+/* monarch_memory
  * return:
  *   #{ 'total'    => Bytes :: integer(),
  *      'wired'    => Bytes :: integer(),
@@ -170,7 +170,7 @@ static ERL_NIF_TERM monos_machine(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
  *      'free'     => Bytes :: integer()  }
  */
 
-static ERL_NIF_TERM monos_memory(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+static ERL_NIF_TERM monarch_memory(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     ERL_NIF_TERM map;
     mach_msg_type_number_t count = HOST_VM_INFO_COUNT;
     vm_statistics_data_t vmstat;
@@ -204,7 +204,7 @@ static ERL_NIF_TERM monos_memory(ErlNifEnv *env, int argc, const ERL_NIF_TERM ar
     return map;
 }
 
-static ERL_NIF_TERM monos_loadavg(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+static ERL_NIF_TERM monarch_loadavg(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     ERL_NIF_TERM map;
     struct loadavg loadinfo;
     size_t sz;
@@ -223,7 +223,7 @@ static ERL_NIF_TERM monos_loadavg(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
 
     return map;
 }
-static ERL_NIF_TERM monos_disks(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+static ERL_NIF_TERM monarch_disks(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
 
     int i,fsn;
     size_t sz;
@@ -252,7 +252,7 @@ static ERL_NIF_TERM monos_disks(ErlNifEnv *env, int argc, const ERL_NIF_TERM arg
     return res;
 }
 
-static ERL_NIF_TERM monos_processes(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+static ERL_NIF_TERM monarch_processes(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     /*
     struct kinfo_proc *proc_list = NULL;
     size_t sz = 0;
@@ -324,11 +324,11 @@ static void init(ErlNifEnv *env) {
 
 static ErlNifFunc nif_functions[] =
 {
-    {"loadavg", 0, monos_loadavg},
-    {"memory",  0, monos_memory},
-    {"processes",  0, monos_processes},
-    {"disks",  0, monos_disks},
-    {"machine", 0, monos_machine}
+    {"loadavg", 0, monarch_loadavg},
+    {"memory",  0, monarch_memory},
+    {"processes",  0, monarch_processes},
+    {"disks",  0, monarch_disks},
+    {"machine", 0, monarch_machine}
 };
 
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info) {
@@ -337,4 +337,4 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info) {
     return 0;
 }
 
-ERL_NIF_INIT(monos_lib, nif_functions, load, NULL, NULL, NULL)
+ERL_NIF_INIT(monarch_lib, nif_functions, load, NULL, NULL, NULL)

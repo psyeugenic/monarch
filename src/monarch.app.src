@@ -1,12 +1,12 @@
-{application, monos,
+{application, monarch,
  [
-  {description, ""},
+  {description, "System monitor"},
   {vsn, "1.0"},
   {registered, []},
   {applications, [
                   kernel,
                   stdlib
                  ]},
-  {mod, { monos_app, []}},
+  {mod, { monarch_app, []}},
   {env, []}
  ]}.

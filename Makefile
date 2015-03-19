@@ -1,5 +1,5 @@
 ERL ?= erl
-APP := monos
+APP := monarch
 
 .PHONY: deps
 

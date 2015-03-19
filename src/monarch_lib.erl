@@ -1,12 +1,12 @@
 %%
 %% Copyright (C) 2014 Björn-Egil Dahlberg
 %%
-%% File:    monos_lib.erl
+%% File:    monarch_lib.erl
 %% Author:  Björn-Egil Dahlberg
 %% Created: 2014-09-11
 %%
 
--module(monos_lib).
+-module(monarch_lib).
 -export([machine/0,
 	 memory/0,
 	 disks/0,
@@ -27,8 +27,8 @@ disks() -> erlang:nif_error(undef).
 %% NIF handler
 
 load_nif() ->
-    SoName = case code:priv_dir(monos) of
-        {error, bad_name} -> filename:join("priv", "libmonos");
-        Dir -> filename:join(Dir, "libmonos")
+    SoName = case code:priv_dir(monarch) of
+        {error, bad_name} -> filename:join("priv", "libmonarch");
+        Dir -> filename:join(Dir, "libmonarch")
     end,
     erlang:load_nif(SoName, 0).

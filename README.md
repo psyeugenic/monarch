@@ -1,11 +1,11 @@
-monos
-=====
+monarch
+=======
 
 An `os_mon` replacement.
 
 ### Static Data from Boot time ###
 
-* `monos:machine()`
+* `monarch:machine()`
 
 ```erlang
     #{'machine'  => :: binary(),     % ex. <<"x86_64">>
@@ -17,7 +17,7 @@ An `os_mon` replacement.
 
 ### Fetching Memory Data ###
 
-* `monos:memory()`
+* `monarch:memory()`
 
 ```erlang
     #{'active'   => integer(),    % ex. 1436594176,
@@ -29,7 +29,7 @@ An `os_mon` replacement.
 
 ### Fetching CPU Data ###
 
-* `monos:cpu_util()`
+* `monarch:cpu_util()`
 
 ```erlang
     #{'soft_irq'  => float(),    % ex.  0.018104462
@@ -47,7 +47,7 @@ An `os_mon` replacement.
 
 ### Fetching Disk Data ###
 
-* `monos:disks()`
+* `monarch:disks()`
 
 ```erlang
     [#{bfree      => integer(),  % ex. 45058684
