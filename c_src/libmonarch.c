@@ -53,6 +53,8 @@ static ERL_NIF_TERM am_wired;
 static ERL_NIF_TERM am_active;
 static ERL_NIF_TERM am_inactive;
 static ERL_NIF_TERM am_free;
+/* loadavg */
+static ERL_NIF_TERM loadavg_key[3];
 /* sysctl */
 static ERL_NIF_TERM mib_atom[MIB_ENTRIES];
 static unsigned int mib_code[MIB_ENTRIES];
@@ -204,6 +206,13 @@ static ERL_NIF_TERM monarch_memory(ErlNifEnv *env, int argc, const ERL_NIF_TERM 
     return map;
 }
 
+/* monarch_loadavg
+ * return:
+ *   #{  1  => Load :: float(),
+ *       5  => Load :: float(),
+ *      15  => Load :: float()  }
+ */
+
 static ERL_NIF_TERM monarch_loadavg(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     ERL_NIF_TERM map;
     struct loadavg loadinfo;
@@ -217,7 +226,11 @@ static ERL_NIF_TERM monarch_loadavg(ErlNifEnv *env, int argc, const ERL_NIF_TERM
     map = enif_make_new_map(env);
     n = sizeof(loadinfo.ldavg) / sizeof(fixpt_t);
     for (i = 0; i < n; i++) {
-	enif_make_map_put(env, map, enif_make_int(env,i),
+	/* 0 -> 1
+	 * 1 -> 5
+	 * 2 -> 15
+	 */
+	enif_make_map_put(env, map, loadavg_key[i],
 	    enif_make_double(env,(double) loadinfo.ldavg[i] / loadinfo.fscale), &map);
     }
 
@@ -282,6 +295,9 @@ static ERL_NIF_TERM monarch_processes(ErlNifEnv *env, int argc, const ERL_NIF_TE
     return am_ok;
 }
 
+static ERL_NIF_TERM monarch_cpu_util(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+    return am_ok;
+}
 /* boilerplate */
 #define init_mib_code(Class,Code,Type,Ix,Name)     \
     do {                                           \
@@ -304,6 +320,11 @@ static void init(ErlNifEnv *env) {
     am_mountpoint = enif_make_atom(env,"mountpoint");
     am_blocks     = enif_make_atom(env,"blocks");
     am_bfree      = enif_make_atom(env,"bfree");
+
+    /* loadavg */
+    loadavg_key[0] = enif_make_int(env,1);
+    loadavg_key[1] = enif_make_int(env,5);
+    loadavg_key[2] = enif_make_int(env,15);
 
     /* sysctl */
     init_mib_code(CTL_HW, HW_MACHINE,  MIB_STRING,  0, "machine");
@@ -328,6 +349,7 @@ static ErlNifFunc nif_functions[] =
     {"memory",  0, monarch_memory},
     {"processes",  0, monarch_processes},
     {"disks",  0, monarch_disks},
+    {"cpu_util",  0, monarch_cpu_util},
     {"machine", 0, monarch_machine}
 };
 

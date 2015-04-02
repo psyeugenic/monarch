@@ -81,8 +81,7 @@ check_full_disks([],S0) ->
 
 check_full_disk(#{ blocks := 0 }, S) -> S;
 check_full_disk(#{ bfree := Free, blocks := Total, mountpoint := Name },
-		#state{ ratio =R }= S) when Free/Total < R ->
-    io:format("wat ~p r = ~p~n", [Name,Free/Total]),
+		#state{ ratio=R }= S) when Free/Total < R ->
     S;
 check_full_disk(_,S) -> S.
 

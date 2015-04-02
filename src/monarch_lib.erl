@@ -11,6 +11,7 @@
 	 memory/0,
 	 disks/0,
 	 loadavg/0,
+	 cpu_util/0,
 	 processes/0]).
 
 -on_load(load_nif/0).
@@ -22,6 +23,7 @@ memory() -> erlang:nif_error(undef).
 loadavg() -> erlang:nif_error(undef).
 processes() -> erlang:nif_error(undef).
 disks() -> erlang:nif_error(undef).
+cpu_util() -> erlang:nif_error(undef).
 
 
 %% NIF handler
