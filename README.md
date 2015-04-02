@@ -50,12 +50,27 @@ An `os_mon` replacement.
 * `monarch:disks()`
 
 ```erlang
-    [#{bfree      => integer(),  % ex. 45058684
-       blocks     => integer(),  % ex. 243980744
-       mountpoint => binary()}]  % ex. <<"/">>
+    [#{'bfree'      => integer(),  % ex. 45058684
+       'blocks'     => integer(),  % ex. 243980744
+       'mountpoint' => binary()}]  % ex. <<"/">>
 ```
 
-How ol' `OS_Mon` did it
+### Fetching OS Process Data ###
+
+* `monarch:processes()`
+
+```erlang
+    [#{'name'      => binary(),    % ex. <<"beam.smp">>
+       'pid'       => integer(),   % ex. 54426
+       'pgid'      => integer(),   % ex. 54426
+       'ppid'      => integer(),   % ex. 18665
+       'starttime' => integer(),   % ex. 1427997920
+       'state'     => integer(),   % ex. 2
+       'uid'       => integer(),   % ex. 501
+       'user'      => binary()}]   % ex. <<"egil">>
+```
+
+How old `OS_Mon` did it
 -----------------------
 
 `os_mon` feature areas:
