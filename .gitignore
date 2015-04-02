@@ -1,5 +1,7 @@
+*.sw[a-z]
 rebar
 .rebar/
 ebin/
 priv/
 c_src/*.o
+doc/
