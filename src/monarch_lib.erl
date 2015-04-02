@@ -18,12 +18,12 @@
 
 %% API
 
-machine() -> erlang:nif_error(undef).
-memory() -> erlang:nif_error(undef).
-loadavg() -> erlang:nif_error(undef).
+machine()   -> erlang:nif_error(undef).
+memory()    -> erlang:nif_error(undef).
+loadavg()   -> erlang:nif_error(undef).
 processes() -> erlang:nif_error(undef).
-disks() -> erlang:nif_error(undef).
-cpu_util() -> erlang:nif_error(undef).
+disks()     -> erlang:nif_error(undef).
+cpu_util()  -> erlang:nif_error(undef).
 
 
 %% NIF handler
