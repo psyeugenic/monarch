@@ -5,3 +5,5 @@ ebin/
 priv/
 c_src/*.o
 doc/
+test/*.beam
+logs/

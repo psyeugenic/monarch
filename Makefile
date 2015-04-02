@@ -1,7 +1,7 @@
 ERL ?= erl
 APP := monarch
 
-.PHONY: deps
+.PHONY: deps test
 
 all: rebar
 	@./rebar compile
