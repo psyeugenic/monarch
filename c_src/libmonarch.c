@@ -69,6 +69,10 @@ static ERL_NIF_TERM am_pgid;
 static ERL_NIF_TERM am_user;
 static ERL_NIF_TERM am_name;
 static ERL_NIF_TERM am_starttime;
+static ERL_NIF_TERM am_load;
+static ERL_NIF_TERM am_mem_res;
+static ERL_NIF_TERM am_mem_map;
+
 static ERL_NIF_TERM am_state;
 static ERL_NIF_TERM process_state[8];
 
@@ -388,50 +392,59 @@ static ERL_NIF_TERM monarch_processes(ErlNifEnv *env, int argc, const ERL_NIF_TE
         uid_t uid = proc_list[i].kp_eproc.e_ucred.cr_uid;
         char *username = NULL;
         user = getpwuid(uid);
-	username = user ? user->pw_name : "undefined";
+        username = user ? user->pw_name : "undefined";
 
-	map = enif_make_new_map(env);
-	sz  = strlen(username);
+        map = enif_make_new_map(env);
+        sz  = strlen(username);
 
-	if (!enif_alloc_binary(sz,&obin)) {
-	    return enif_make_badarg(env);
-	}
+        if (!enif_alloc_binary(sz,&obin)) {
+            return enif_make_badarg(env);
+        }
 
-	memcpy(obin.data,username,sz);
-	/* user name */
-	enif_make_map_put(env, map, am_user,
-		enif_make_binary(env,&obin), &map);
-	/* user id */
-	enif_make_map_put(env, map, am_uid,
-		enif_make_ulong(env,(unsigned long)uid), &map);
-	/* process name, if any otherwise 'undefined' */
-	enif_make_map_put(env, map, am_name,
-		monarch_get_process_name(env, proc_list[i].kp_proc.p_pid), &map);
-	/* process id */
-	enif_make_map_put(env, map, am_pid,
-		enif_make_ulong(env,(unsigned long)proc_list[i].kp_proc.p_pid), &map);
-	/* parent process id */
-	enif_make_map_put(env, map, am_ppid,
-		enif_make_ulong(env,(unsigned long)proc_list[i].kp_eproc.e_ppid), &map);
-	/* process group id */
-	enif_make_map_put(env, map, am_pgid,
-		enif_make_ulong(env,(unsigned long)proc_list[i].kp_eproc.e_pgid), &map);
-	/* process start time in seconds */
-	enif_make_map_put(env, map, am_starttime,
-		enif_make_long(env,(long)proc_list[i].kp_proc.p_starttime.tv_sec), &map);
-	/* process state */
-	enif_make_map_put(env, map, am_state,
-		enif_make_int(env,(int)proc_list[i].kp_proc.p_stat), &map);
+        memcpy(obin.data,username,sz);
+        /* user name */
+        enif_make_map_put(env, map, am_user,
+                enif_make_binary(env,&obin), &map);
+        /* user id */
+        enif_make_map_put(env, map, am_uid,
+                enif_make_ulong(env,(unsigned long)uid), &map);
+        /* process name, if any otherwise 'undefined' */
+        enif_make_map_put(env, map, am_name,
+                monarch_get_process_name(env, proc_list[i].kp_proc.p_pid), &map);
+        /* process id */
+        enif_make_map_put(env, map, am_pid,
+                enif_make_ulong(env,(unsigned long)proc_list[i].kp_proc.p_pid), &map);
+        /* parent process id */
+        enif_make_map_put(env, map, am_ppid,
+                enif_make_ulong(env,(unsigned long)proc_list[i].kp_eproc.e_ppid), &map);
+        /* process group id */
+        enif_make_map_put(env, map, am_pgid,
+                enif_make_ulong(env,(unsigned long)proc_list[i].kp_eproc.e_pgid), &map);
+        /* process start time in seconds */
+        enif_make_map_put(env, map, am_starttime,
+                enif_make_long(env,(long)proc_list[i].kp_proc.p_starttime.tv_sec), &map);
+        /* process state */
+        enif_make_map_put(env, map, am_state,
+                enif_make_int(env,(int)proc_list[i].kp_proc.p_stat), &map);
+        /* process memory mapped */
+        /* darn mac
+        sz = (proc_list[i].kp_eproc.e_vm.vm_tsize +
+              proc_list[i].kp_eproc.e_vm.vm_dsize +
+              proc_list[i].kp_eproc.e_vm.vm_ssize);// * getpagesize();
+        enif_make_map_put(env, map, am_mem_map,
+                enif_make_ulong(env,(unsigned long)sz), &map);
+        */
+        /* process memory resident */
+        /* darn mac
+        sz = proc_list[i].kp_eproc.e_vm.vm_rssize; // * getpagesize();
+        enif_make_map_put(env, map, am_mem_res,
+                enif_make_ulong(env,(unsigned long)sz), &map);
+        */
+        /* process memory load */
+        enif_make_map_put(env, map, am_load,
+                enif_make_double(env,((double)proc_list[i].kp_proc.p_pctcpu / FSCALE)), &map);
 
-	/*
-        fprintf(stderr,"pid=%d, uid=%d, username=%s, login=%s\r\n",
-                proc_list[i].kp_proc.p_pid,
-                uid,
-                username,
-                proc_list[i].kp_eproc.e_login
-		);
-		*/
-	res = enif_make_list_cell(env, map, res);
+        res = enif_make_list_cell(env, map, res);
     }
     monarch_free(proc_list);
     return res;
@@ -477,7 +490,9 @@ static void init(ErlNifEnv *env) {
     am_user = enif_make_atom(env,"user");
     am_name = enif_make_atom(env,"name");
     am_starttime = enif_make_atom(env,"starttime");
-
+    am_load = enif_make_atom(env,"load");
+    am_mem_res = enif_make_atom(env,"mem_res");
+    am_mem_map = enif_make_atom(env,"mem_map");
 
     /* process states */
     //char p_stat[]="?iRSTZ";
