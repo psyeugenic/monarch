@@ -120,3 +120,35 @@ Previous `OS_Mon` Interface:
  * `get_almost_full_threshold() -> Percent :: 0..100`
  * `set_almost_full_threshold(Float :: float()) -> ok`
 
+
+Vector
+------
+
+
+#### CPU
+
+ * Load Average
+ * Runnable
+ * CPU Utilization
+ * Per-CPU Utilization
+ * Context Switches
+
+#### Memory
+
+ * Memory Utilization
+ * Page Faults
+
+#### Disk
+
+ * Disk IOPS
+ * Disk Throughput
+ * Disk Utilization
+ * Disk Latency
+
+#### Network
+
+ * Network Drops
+ * TCP Retransmits
+ * TCP Connections
+ * Network Throughput
+ * Network Packets
