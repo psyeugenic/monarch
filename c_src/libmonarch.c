@@ -30,6 +30,11 @@
 #include <sys/ucred.h>
 #endif
 
+#ifdef __linux__
+#include "sys/types.h"
+#include "sys/sysinfo.h"
+#endif
+
 #include "erl_nif.h"
 
 #ifdef __darwin__
@@ -202,37 +207,61 @@ static ERL_NIF_TERM monarch_machine(ErlNifEnv *env, int argc, const ERL_NIF_TERM
  */
 
 static ERL_NIF_TERM monarch_memory(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
-    ERL_NIF_TERM map = am_undefined;
-#ifdef __darwin__
-    mach_msg_type_number_t count = HOST_VM_INFO_COUNT;
-    vm_statistics_data_t vmstat;
-    int pagesize = 0;
-    size_t sz;
-    int mib[] = { CTL_HW, HW_PAGESIZE };
     unsigned long total,wired,active,inactive,free;
+    ERL_NIF_TERM map = enif_make_new_map(env);
+#if defined(__darwin__)
+    {
+        mach_msg_type_number_t count = HOST_VM_INFO_COUNT;
+        vm_statistics_data_t vmstat;
+        int pagesize = 0;
+        size_t sz;
+        int mib[] = { CTL_HW, HW_PAGESIZE };
 
-    if (host_statistics(mach_host_self(), HOST_VM_INFO, (host_info_t) &vmstat, &count) != KERN_SUCCESS) {
-	return enif_make_badarg(env);
+        if (host_statistics(mach_host_self(), HOST_VM_INFO, (host_info_t) &vmstat, &count) != KERN_SUCCESS) {
+            return enif_make_badarg(env);
+        }
+        sz = sizeof(pagesize);
+        sysctl(mib, 2, &pagesize, &sz, NULL, 0);
+
+        /* natural_t is machine depedent unsigned int */
+
+        total = vmstat.wire_count + vmstat.active_count + vmstat.inactive_count + vmstat.free_count;
+        total = total * pagesize;
+        wired = vmstat.wire_count * pagesize;
+        active = vmstat.active_count * pagesize;
+        inactive = vmstat.inactive_count * pagesize;
+        free = vmstat.free_count * pagesize;
     }
-    sz = sizeof(pagesize);
-    sysctl(mib, 2, &pagesize, &sz, NULL, 0);
+#elif defined(__linux__)
+    {
+        struct sysinfo meminfo;
 
-    map = enif_make_new_map(env);
+        // struct sysinfo {
+        //     long uptime;             /* Seconds since boot */
+        //     unsigned long loads[3];  /* 1, 5, and 15 minute load averages */
+        //     unsigned long totalram;  /* Total usable main memory size */
+        //     unsigned long freeram;   /* Available memory size */
+        //     unsigned long sharedram; /* Amount of shared memory */
+        //     unsigned long bufferram; /* Memory used by buffers */
+        //     unsigned long totalswap; /* Total swap space size */
+        //     unsigned long freeswap;  /* swap space still available */
+        //     unsigned short procs;    /* Number of current processes */
+        //     char _f[22];             /* Pads structure to 64 bytes */
+        // };
 
-    /* natural_t is machine depedent unsigned int */
-
-    total = vmstat.wire_count + vmstat.active_count + vmstat.inactive_count + vmstat.free_count;
-    wired = vmstat.wire_count;
-    active = vmstat.active_count;
-    inactive = vmstat.inactive_count;
-    free = vmstat.free_count;
-
-    enif_make_map_put(env, map, am_total, enif_make_ulong(env,total*pagesize), &map);
-    enif_make_map_put(env, map, am_wired, enif_make_ulong(env,wired*pagesize), &map);
-    enif_make_map_put(env, map, am_active, enif_make_ulong(env,active*pagesize), &map);
-    enif_make_map_put(env, map, am_inactive, enif_make_ulong(env,inactive*pagesize), &map);
-    enif_make_map_put(env, map, am_free, enif_make_ulong(env,free*pagesize), &map);
+        sysinfo(&meminfo);
+        total = meminfo.totalram;
+        free  = meminfo.freeram;
+        active = 0;
+        inactive = 0;
+        wired = 0;
+    }
 #endif
+    enif_make_map_put(env, map, am_total, enif_make_ulong(env,total), &map);
+    enif_make_map_put(env, map, am_wired, enif_make_ulong(env,wired), &map);
+    enif_make_map_put(env, map, am_active, enif_make_ulong(env,active), &map);
+    enif_make_map_put(env, map, am_inactive, enif_make_ulong(env,inactive), &map);
+    enif_make_map_put(env, map, am_free, enif_make_ulong(env,free), &map);
     return map;
 }
 
@@ -244,23 +273,29 @@ static ERL_NIF_TERM monarch_memory(ErlNifEnv *env, int argc, const ERL_NIF_TERM 
  */
 
 static ERL_NIF_TERM monarch_loadavg(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
-    ERL_NIF_TERM map = am_undefined;
+    ERL_NIF_TERM map = enif_make_new_map(env);
+    int i, n;
 #ifdef __darwin__
+#define monarch_load_array(Ix) ((double) loadinfo.ldavg[(Ix)] / loadinfo.fscale)
     struct loadavg loadinfo;
     size_t sz;
-    int n, i, mib[] = {CTL_VM, VM_LOADAVG};
+    int mib[] = {CTL_VM, VM_LOADAVG};
     sz = sizeof(loadinfo);
 
     if (sysctl(mib, 2, &loadinfo, &sz, NULL, 0) < 0)
-	return enif_make_badarg(env);
+        return enif_make_badarg(env);
 
-    map = enif_make_new_map(env);
     n = sizeof(loadinfo.ldavg) / sizeof(fixpt_t);
-    for (i = 0; i < n; i++) {
-	enif_make_map_put(env, map, loadavg_key[i],
-	    enif_make_double(env,(double) loadinfo.ldavg[i] / loadinfo.fscale), &map);
-    }
+#elif defined (__linux__)
+#define monarch_load_array(Ix) ((double) (meminfo.loads[(Ix)] / (float)(1 <<  SI_LOAD_SHIFT)))
+    struct sysinfo meminfo;
+    sysinfo(&meminfo);
+    n = sizeof(meminfo.loads) / sizeof(meminfo.loads[0]);
 #endif
+    for (i = 0; i < n; i++) {
+        enif_make_map_put(env, map, loadavg_key[i],
+                enif_make_double(env, monarch_load_array(i)), &map);
+    }
     return map;
 }
 
