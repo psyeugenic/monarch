@@ -14,7 +14,7 @@
 #endif
 #include <sys/time.h>
 #include <sys/sysctl.h>
-#ifdef __darwin__
+#ifdef __APPLE__
 #include <mach/host_info.h>
 #include <mach/mach_host.h>
 #include <mach/task_info.h>
@@ -23,12 +23,12 @@
 
 /* getpwuid */
 #include <pwd.h>
-#ifdef __darwin__
+#ifdef __APPLE__
 #include <uuid/uuid.h>
 #endif
 
 /* getfsstat */
-#ifdef __darwin__
+#ifdef __APPLE__
 #include <sys/param.h>
 #include <sys/mount.h>
 #include <sys/ucred.h>
@@ -41,7 +41,7 @@
 
 #include "erl_nif.h"
 
-#ifdef __darwin__
+#ifdef __APPLE__
 #define MIB_ENTRIES (12)
 
 #define MIB_STRING          (0)
@@ -75,7 +75,7 @@ static ERL_NIF_TERM am_wired;
 static ERL_NIF_TERM am_active;
 static ERL_NIF_TERM am_inactive;
 static ERL_NIF_TERM am_free;
-#ifdef __darwin__
+#ifdef __APPLE__
 /* sysctl */
 static ERL_NIF_TERM mib_atom[MIB_ENTRIES];
 static unsigned int mib_code[MIB_ENTRIES];
@@ -158,7 +158,7 @@ static ERL_NIF_TERM process_state[8];
 
 static ERL_NIF_TERM monarch_machine(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     ERL_NIF_TERM map = enif_make_new_map(env);
-#ifdef __darwin__
+#ifdef __APPLE__
     int ix,mib[2];
     long val;
     size_t sz;
@@ -215,53 +215,49 @@ static ERL_NIF_TERM monarch_machine(ErlNifEnv *env, int argc, const ERL_NIF_TERM
 static ERL_NIF_TERM monarch_memory(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     unsigned long total,wired,active,inactive,free;
     ERL_NIF_TERM map = enif_make_new_map(env);
-#if defined(__darwin__)
-    {
-        mach_msg_type_number_t count = HOST_VM_INFO_COUNT;
-        vm_statistics_data_t vmstat;
-        int pagesize = 0;
-        size_t sz;
-        int mib[] = { CTL_HW, HW_PAGESIZE };
+#if defined (__APPLE__)
+    mach_msg_type_number_t count = HOST_VM_INFO_COUNT;
+    vm_statistics_data_t vmstat;
+    int pagesize = 0;
+    size_t sz;
+    int mib[] = { CTL_HW, HW_PAGESIZE };
 
-        if (host_statistics(mach_host_self(), HOST_VM_INFO, (host_info_t) &vmstat, &count) != KERN_SUCCESS) {
-            return enif_make_badarg(env);
-        }
-        sz = sizeof(pagesize);
-        sysctl(mib, 2, &pagesize, &sz, NULL, 0);
-
-        /* natural_t is machine depedent unsigned int */
-
-        total = vmstat.wire_count + vmstat.active_count + vmstat.inactive_count + vmstat.free_count;
-        total = total * pagesize;
-        wired = vmstat.wire_count * pagesize;
-        active = vmstat.active_count * pagesize;
-        inactive = vmstat.inactive_count * pagesize;
-        free = vmstat.free_count * pagesize;
+    if (host_statistics(mach_host_self(), HOST_VM_INFO, (host_info_t) &vmstat, &count) != KERN_SUCCESS) {
+        return enif_make_badarg(env);
     }
+    sz = sizeof(pagesize);
+    sysctl(mib, 2, &pagesize, &sz, NULL, 0);
+
+    /* natural_t is machine depedent unsigned int */
+
+    total = vmstat.wire_count + vmstat.active_count + vmstat.inactive_count + vmstat.free_count;
+    total = total * pagesize;
+    wired = vmstat.wire_count * pagesize;
+    active = vmstat.active_count * pagesize;
+    inactive = vmstat.inactive_count * pagesize;
+    free = vmstat.free_count * pagesize;
 #elif defined(__linux__)
-    {
-        struct sysinfo meminfo;
+    struct sysinfo meminfo;
 
-        // struct sysinfo {
-        //     long uptime;             /* Seconds since boot */
-        //     unsigned long loads[3];  /* 1, 5, and 15 minute load averages */
-        //     unsigned long totalram;  /* Total usable main memory size */
-        //     unsigned long freeram;   /* Available memory size */
-        //     unsigned long sharedram; /* Amount of shared memory */
-        //     unsigned long bufferram; /* Memory used by buffers */
-        //     unsigned long totalswap; /* Total swap space size */
-        //     unsigned long freeswap;  /* swap space still available */
-        //     unsigned short procs;    /* Number of current processes */
-        //     char _f[22];             /* Pads structure to 64 bytes */
-        // };
+    // struct sysinfo {
+    //     long uptime;             /* Seconds since boot */
+    //     unsigned long loads[3];  /* 1, 5, and 15 minute load averages */
+    //     unsigned long totalram;  /* Total usable main memory size */
+    //     unsigned long freeram;   /* Available memory size */
+    //     unsigned long sharedram; /* Amount of shared memory */
+    //     unsigned long bufferram; /* Memory used by buffers */
+    //     unsigned long totalswap; /* Total swap space size */
+    //     unsigned long freeswap;  /* swap space still available */
+    //     unsigned short procs;    /* Number of current processes */
+    //     char _f[22];             /* Pads structure to 64 bytes */
+    // };
 
-        sysinfo(&meminfo);
-        total = meminfo.totalram;
-        free  = meminfo.freeram;
-        active = 0;
-        inactive = 0;
-        wired = 0;
-    }
+    sysinfo(&meminfo);
+    total = meminfo.totalram;
+    free  = meminfo.freeram;
+    active = 0;
+    inactive = 0;
+    wired = 0;
 #endif
     enif_make_map_put(env, map, am_total, enif_make_ulong(env,total), &map);
     enif_make_map_put(env, map, am_wired, enif_make_ulong(env,wired), &map);
@@ -281,7 +277,7 @@ static ERL_NIF_TERM monarch_memory(ErlNifEnv *env, int argc, const ERL_NIF_TERM 
 static ERL_NIF_TERM monarch_loadavg(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     ERL_NIF_TERM map = enif_make_new_map(env);
     int i, n;
-#ifdef __darwin__
+#if defined (__APPLE__)
 #define monarch_load_array(Ix) ((double) loadinfo.ldavg[(Ix)] / loadinfo.fscale)
     struct loadavg loadinfo;
     size_t sz;
@@ -317,7 +313,7 @@ static ERL_NIF_TERM monarch_loadavg(ErlNifEnv *env, int argc, const ERL_NIF_TERM
 static ERL_NIF_TERM monarch_disks(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     ERL_NIF_TERM res = enif_make_list(env, 0); /* NIL */
     ERL_NIF_TERM map;
-#if defined (__darwin__)
+#if defined (__APPLE__)
     int i,fsn;
     size_t sz;
     struct statfs buf[125];
@@ -446,7 +442,7 @@ static ERL_NIF_TERM monarch_disks(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
  *   struct passwd *pw;
  */
 
-#ifdef __darwin__
+#ifdef __APPLE__
 static ERL_NIF_TERM monarch_get_process_name(ErlNifEnv *env, pid_t pid) {
     int mib[4], maxarg = 0, numArgs = 0;
     size_t sz = 0;
@@ -497,7 +493,7 @@ static ERL_NIF_TERM monarch_get_process_name(ErlNifEnv *env, pid_t pid) {
 }
 #endif
 
-#ifdef __darwin__
+#ifdef __APPLE__
 static ERL_NIF_TERM monarch_process(ErlNifEnv *env, struct kinfo_proc *proc) {
     uid_t uid = proc->kp_eproc.e_ucred.cr_uid;
     char *username = NULL;
@@ -581,7 +577,7 @@ static ERL_NIF_TERM monarch_process(ErlNifEnv *env, struct kinfo_proc *proc) {
 
 static ERL_NIF_TERM monarch_processes(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     ERL_NIF_TERM res = enif_make_list(env, 0); /* NIL */
-#ifdef __darwin__
+#ifdef __APPLE__
     ERL_NIF_TERM map = am_undefined;
     struct kinfo_proc *proc_list = NULL;
     size_t sz = 0;
@@ -606,7 +602,7 @@ static ERL_NIF_TERM monarch_cpu_util(ErlNifEnv *env, int argc, const ERL_NIF_TER
     return am_ok;
 }
 /* boilerplate */
-#ifdef __darwin__
+#ifdef __APPLE__
 #define init_mib_code(Class,Code,Type,Ix,Name)     \
     do {                                           \
 	mib_atom[Ix] = enif_make_atom(env,Name);   \
@@ -664,7 +660,7 @@ static void init(ErlNifEnv *env) {
     process_state[7] = enif_make_atom(env,"unknown");
 
     /* sysctl */
-#ifdef __darwin__
+#ifdef __APPLE__
     init_mib_code(CTL_HW, HW_MACHINE,  MIB_STRING,  0, "machine");
     init_mib_code(CTL_HW, HW_MODEL,    MIB_STRING,  1, "model");
     init_mib_code(CTL_HW, HW_NCPU,     MIB_INTEGER, 2, "ncpu");
