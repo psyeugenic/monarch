@@ -7,7 +7,11 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 #include <sys/types.h>
+#ifdef __linux__
+#include <sys/sysinfo.h>
+#endif
 #include <sys/time.h>
 #include <sys/sysctl.h>
 #ifdef __darwin__
@@ -24,16 +28,16 @@
 #endif
 
 /* getfsstat */
+#ifdef __darwin__
 #include <sys/param.h>
 #include <sys/mount.h>
-#ifdef __darwin__
 #include <sys/ucred.h>
 #endif
-
 #ifdef __linux__
-#include "sys/types.h"
-#include "sys/sysinfo.h"
+#include <mntent.h>
+#include <sys/statvfs.h>
 #endif
+
 
 #include "erl_nif.h"
 
@@ -63,6 +67,8 @@ static ERL_NIF_TERM am_undefined;
 static ERL_NIF_TERM am_mountpoint;
 static ERL_NIF_TERM am_blocks;
 static ERL_NIF_TERM am_bfree;
+static ERL_NIF_TERM am_bsize;
+static ERL_NIF_TERM am_device;
 /* vm_stat */
 static ERL_NIF_TERM am_total;
 static ERL_NIF_TERM am_wired;
@@ -310,8 +316,8 @@ static ERL_NIF_TERM monarch_loadavg(ErlNifEnv *env, int argc, const ERL_NIF_TERM
 
 static ERL_NIF_TERM monarch_disks(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     ERL_NIF_TERM res = enif_make_list(env, 0); /* NIL */
-#ifdef __darwin__
-    ERL_NIF_TERM map = am_undefined;
+    ERL_NIF_TERM map;
+#if defined (__darwin__)
     int i,fsn;
     size_t sz;
     struct statfs buf[125];
@@ -334,6 +340,67 @@ static ERL_NIF_TERM monarch_disks(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
 		enif_make_ulong(env,buf[i].f_bfree), &map);
 	res = enif_make_list_cell(env, map, res);
     }
+#elif defined (__linux__)
+    struct mntent *ent;
+    struct statvfs vfs;
+    FILE *mounts = setmntent("/etc/mtab", "r");
+
+    // struct mntent {
+    //     char *mnt_fsname;   /* name of mounted filesystem */
+    //     char *mnt_dir;      /* filesystem path prefix */
+    //     char *mnt_type;     /* mount type (see mntent.h) */
+    //     char *mnt_opts;     /* mount options (see mntent.h) */
+    //     int   mnt_freq;     /* dump frequency in days */
+    //     int   mnt_passno;   /* pass number on parallel fsck */
+    // };
+    size_t sz;
+    ErlNifBinary obin;
+
+    // struct statvfs {
+    //     unsigned long  f_bsize;    /* filesystem block size */
+    //     unsigned long  f_frsize;   /* fragment size */
+    //     fsblkcnt_t     f_blocks;   /* size of fs in f_frsize units */
+    //     fsblkcnt_t     f_bfree;    /* # free blocks */
+    //     fsblkcnt_t     f_bavail;   /* # free blocks for unprivileged users */
+    //     fsfilcnt_t     f_files;    /* # inodes */
+    //     fsfilcnt_t     f_ffree;    /* # free inodes */
+    //     fsfilcnt_t     f_favail;   /* # free inodes for unprivileged users */
+    //     unsigned long  f_fsid;     /* filesystem ID */
+    //     unsigned long  f_flag;     /* mount flags */
+    //     unsigned long  f_namemax;  /* maximum filename length */
+    // };
+
+    while ((ent = getmntent(mounts)) != NULL) {
+        statvfs(ent->mnt_dir, &vfs);
+
+	map = enif_make_new_map(env);
+
+	sz = strlen(ent->mnt_dir);
+	if (!enif_alloc_binary(sz,&obin)) {
+	    return enif_make_badarg(env);
+	}
+	memcpy(obin.data,ent->mnt_dir,sz);
+	enif_make_map_put(env, map, am_mountpoint,
+		enif_make_binary(env, &obin), &map);
+
+	sz = strlen(ent->mnt_fsname);
+	if (!enif_alloc_binary(sz,&obin)) {
+	    return enif_make_badarg(env);
+	}
+	memcpy(obin.data,ent->mnt_fsname,sz);
+	enif_make_map_put(env, map, am_device,
+		enif_make_binary(env, &obin), &map);
+
+	enif_make_map_put(env, map, am_blocks,
+		enif_make_ulong(env,vfs.f_blocks), &map);
+	enif_make_map_put(env, map, am_bfree,
+		enif_make_ulong(env,vfs.f_bfree), &map);
+	enif_make_map_put(env, map, am_bsize,
+		enif_make_ulong(env,vfs.f_bsize), &map);
+	res = enif_make_list_cell(env, map, res);
+    }
+    endmntent(mounts);
+
 #endif
     return res;
 }
@@ -559,10 +626,12 @@ static void init(ErlNifEnv *env) {
     am_inactive = enif_make_atom(env,"inactive");
     am_free     = enif_make_atom(env,"free");
 
-    /* vm_stat */
+    /* vm_stat and statvfs*/
     am_mountpoint = enif_make_atom(env,"mountpoint");
     am_blocks     = enif_make_atom(env,"blocks");
     am_bfree      = enif_make_atom(env,"bfree");
+    am_bsize      = enif_make_atom(env,"bsize");
+    am_device     = enif_make_atom(env,"device");
 
     /* loadavg */
     loadavg_key[0] = enif_make_int(env,1);
@@ -576,10 +645,10 @@ static void init(ErlNifEnv *env) {
     am_pgid = enif_make_atom(env,"pgid");
     am_user = enif_make_atom(env,"user");
     am_name = enif_make_atom(env,"name");
-    am_starttime = enif_make_atom(env,"starttime");
     am_load = enif_make_atom(env,"load");
     am_mem_res = enif_make_atom(env,"mem_res");
     am_mem_map = enif_make_atom(env,"mem_map");
+    am_starttime = enif_make_atom(env,"starttime");
 
     /* process states */
     //char p_stat[]="?iRSTZ";
