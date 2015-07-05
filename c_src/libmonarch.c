@@ -10,22 +10,29 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/sysctl.h>
+#ifdef __darwin__
 #include <mach/host_info.h>
 #include <mach/mach_host.h>
 #include <mach/task_info.h>
 #include <mach/task.h>
+#endif
 
 /* getpwuid */
 #include <pwd.h>
+#ifdef __darwin__
 #include <uuid/uuid.h>
+#endif
 
 /* getfsstat */
 #include <sys/param.h>
-#include <sys/ucred.h>
 #include <sys/mount.h>
+#ifdef __darwin__
+#include <sys/ucred.h>
+#endif
 
 #include "erl_nif.h"
 
+#ifdef __darwin__
 #define MIB_ENTRIES (12)
 
 #define MIB_STRING          (0)
@@ -38,6 +45,7 @@
 #define MIB_DEC_CLASS(C)    (((C) >> (MIB_TYPE_SZ)) & ((1 << (MIB_CLASS_SZ)) - 1))
 #define MIB_DEC_CODE(C)     ((C) >> (MIB_CLASS_SZ + MIB_TYPE_SZ))
 #define MIB_DEC_TYPE(C)     ((C) & ((1 << MIB_TYPE_SZ) - 1))
+#endif
 
 #define monarch_alloc(Sz)   (malloc((Sz)))
 #define monarch_free(Ptr)   (free((Ptr)))
@@ -56,9 +64,11 @@ static ERL_NIF_TERM am_wired;
 static ERL_NIF_TERM am_active;
 static ERL_NIF_TERM am_inactive;
 static ERL_NIF_TERM am_free;
+#ifdef __darwin__
 /* sysctl */
 static ERL_NIF_TERM mib_atom[MIB_ENTRIES];
 static unsigned int mib_code[MIB_ENTRIES];
+#endif
 /* loadavg */
 static ERL_NIF_TERM loadavg_key[3];
 /* processes */
@@ -136,10 +146,11 @@ static ERL_NIF_TERM process_state[8];
  */
 
 static ERL_NIF_TERM monarch_machine(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+    ERL_NIF_TERM map = enif_make_new_map(env);
+#ifdef __darwin__
     int ix,mib[2];
     long val;
     size_t sz;
-    ERL_NIF_TERM map = enif_make_new_map(env);
 
     for (ix=0; ix < MIB_ENTRIES; ix++) {
 	mib[0] = MIB_DEC_CLASS(mib_code[ix]);
@@ -177,6 +188,7 @@ static ERL_NIF_TERM monarch_machine(ErlNifEnv *env, int argc, const ERL_NIF_TERM
 	    break;
 	}
     }
+#endif
     return map;
 }
 
@@ -190,7 +202,8 @@ static ERL_NIF_TERM monarch_machine(ErlNifEnv *env, int argc, const ERL_NIF_TERM
  */
 
 static ERL_NIF_TERM monarch_memory(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
-    ERL_NIF_TERM map;
+    ERL_NIF_TERM map = am_undefined;
+#ifdef __darwin__
     mach_msg_type_number_t count = HOST_VM_INFO_COUNT;
     vm_statistics_data_t vmstat;
     int pagesize = 0;
@@ -219,7 +232,7 @@ static ERL_NIF_TERM monarch_memory(ErlNifEnv *env, int argc, const ERL_NIF_TERM 
     enif_make_map_put(env, map, am_active, enif_make_ulong(env,active*pagesize), &map);
     enif_make_map_put(env, map, am_inactive, enif_make_ulong(env,inactive*pagesize), &map);
     enif_make_map_put(env, map, am_free, enif_make_ulong(env,free*pagesize), &map);
-
+#endif
     return map;
 }
 
@@ -231,7 +244,8 @@ static ERL_NIF_TERM monarch_memory(ErlNifEnv *env, int argc, const ERL_NIF_TERM 
  */
 
 static ERL_NIF_TERM monarch_loadavg(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
-    ERL_NIF_TERM map;
+    ERL_NIF_TERM map = am_undefined;
+#ifdef __darwin__
     struct loadavg loadinfo;
     size_t sz;
     int n, i, mib[] = {CTL_VM, VM_LOADAVG};
@@ -246,16 +260,26 @@ static ERL_NIF_TERM monarch_loadavg(ErlNifEnv *env, int argc, const ERL_NIF_TERM
 	enif_make_map_put(env, map, loadavg_key[i],
 	    enif_make_double(env,(double) loadinfo.ldavg[i] / loadinfo.fscale), &map);
     }
-
+#endif
     return map;
 }
-static ERL_NIF_TERM monarch_disks(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
 
+/* monarch_disks
+ * return:
+ * [#{bfree => Free :: integer(),
+ *    blocks => Blocks :: integer(),
+ *    mountpoint => Path :: binary() % ex. <<"/home">>
+ *   }].
+ */
+
+
+static ERL_NIF_TERM monarch_disks(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+    ERL_NIF_TERM res = enif_make_list(env, 0); /* NIL */
+#ifdef __darwin__
+    ERL_NIF_TERM map = am_undefined;
     int i,fsn;
     size_t sz;
     struct statfs buf[125];
-    ERL_NIF_TERM res = enif_make_list(env, 0); /* NIL */
-    ERL_NIF_TERM map;
     ErlNifBinary obin;
 
     fsn = getfsstat(NULL, 0, MNT_NOWAIT);
@@ -275,6 +299,7 @@ static ERL_NIF_TERM monarch_disks(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
 		enif_make_ulong(env,buf[i].f_bfree), &map);
 	res = enif_make_list_cell(env, map, res);
     }
+#endif
     return res;
 }
 
@@ -319,6 +344,7 @@ static ERL_NIF_TERM monarch_disks(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
  *   struct passwd *pw;
  */
 
+#ifdef __darwin__
 static ERL_NIF_TERM monarch_get_process_name(ErlNifEnv *env, pid_t pid) {
     int mib[4], maxarg = 0, numArgs = 0;
     size_t sz = 0;
@@ -367,7 +393,9 @@ static ERL_NIF_TERM monarch_get_process_name(ErlNifEnv *env, pid_t pid) {
     monarch_free(args);
     return res;
 }
+#endif
 
+#ifdef __darwin__
 static ERL_NIF_TERM monarch_process(ErlNifEnv *env, struct kinfo_proc *proc) {
     uid_t uid = proc->kp_eproc.e_ucred.cr_uid;
     char *username = NULL;
@@ -435,12 +463,27 @@ static ERL_NIF_TERM monarch_process(ErlNifEnv *env, struct kinfo_proc *proc) {
 
     return map;
 }
+#endif
+
+/* monarch_processes
+ * [#{load => Load :: float(), ex 0.0,
+ *    name => Name :: binary() | 'undefined',
+ *    pgid => Pgid :: integer(),
+ *    pid => Pid :: integer(),
+ *    ppid => Ppid :: integer(),
+ *    starttime => Secs :: integer(),  1428494470,
+ *    state => 2,
+ *    uid => 0,
+ *    user => <<"root">>}].
+ */
+
 static ERL_NIF_TERM monarch_processes(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+    ERL_NIF_TERM res = enif_make_list(env, 0); /* NIL */
+#ifdef __darwin__
+    ERL_NIF_TERM map = am_undefined;
     struct kinfo_proc *proc_list = NULL;
     size_t sz = 0;
     int i, n, mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_ALL };
-    ERL_NIF_TERM map;
-    ERL_NIF_TERM res = enif_make_list(env, 0); /* NIL */
 
     /* XXX: Race condition? */
     sysctl(mib, 3, NULL, &sz, NULL, 0);
@@ -453,6 +496,7 @@ static ERL_NIF_TERM monarch_processes(ErlNifEnv *env, int argc, const ERL_NIF_TE
         res = enif_make_list_cell(env, map, res);
     }
     monarch_free(proc_list);
+#endif
     return res;
 }
 
@@ -460,11 +504,13 @@ static ERL_NIF_TERM monarch_cpu_util(ErlNifEnv *env, int argc, const ERL_NIF_TER
     return am_ok;
 }
 /* boilerplate */
+#ifdef __darwin__
 #define init_mib_code(Class,Code,Type,Ix,Name)     \
     do {                                           \
 	mib_atom[Ix] = enif_make_atom(env,Name);   \
 	mib_code[Ix] = MIB_ENC(Class,Code,Type);   \
     } while(0)
+#endif
 
 static void init(ErlNifEnv *env) {
     am_undefined = enif_make_atom(env,"undefined");
@@ -514,6 +560,7 @@ static void init(ErlNifEnv *env) {
     process_state[7] = enif_make_atom(env,"unknown");
 
     /* sysctl */
+#ifdef __darwin__
     init_mib_code(CTL_HW, HW_MACHINE,  MIB_STRING,  0, "machine");
     init_mib_code(CTL_HW, HW_MODEL,    MIB_STRING,  1, "model");
     init_mib_code(CTL_HW, HW_NCPU,     MIB_INTEGER, 2, "ncpu");
@@ -527,6 +574,7 @@ static void init(ErlNifEnv *env) {
     init_mib_code(CTL_KERN, KERN_OSTYPE,    MIB_STRING,    9, "ostype");
     init_mib_code(CTL_KERN, KERN_VERSION,   MIB_STRING,   10, "kernel_version");
     init_mib_code(CTL_KERN, KERN_BOOTTIME,  MIB_TIMEVAL,  11, "boottime");
+#endif
 }
 #undef init_mib_code
 
