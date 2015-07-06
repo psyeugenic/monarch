@@ -11,6 +11,7 @@
 #include <sys/types.h>
 #ifdef __linux__
 #include <sys/sysinfo.h>
+#include <unistd.h>
 #endif
 #include <sys/time.h>
 #include <sys/sysctl.h>
@@ -75,10 +76,13 @@ static ERL_NIF_TERM am_wired;
 static ERL_NIF_TERM am_active;
 static ERL_NIF_TERM am_inactive;
 static ERL_NIF_TERM am_free;
-#ifdef __APPLE__
+#if defined (__APPLE__)
 /* sysctl */
 static ERL_NIF_TERM mib_atom[MIB_ENTRIES];
 static unsigned int mib_code[MIB_ENTRIES];
+#elif defined (__linux__)
+static ERL_NIF_TERM am_pagesize;
+static ERL_NIF_TERM am_ncpu;
 #endif
 /* loadavg */
 static ERL_NIF_TERM loadavg_key[3];
@@ -158,7 +162,7 @@ static ERL_NIF_TERM process_state[8];
 
 static ERL_NIF_TERM monarch_machine(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     ERL_NIF_TERM map = enif_make_new_map(env);
-#ifdef __APPLE__
+#if defined (__APPLE__)
     int ix,mib[2];
     long val;
     size_t sz;
@@ -199,6 +203,9 @@ static ERL_NIF_TERM monarch_machine(ErlNifEnv *env, int argc, const ERL_NIF_TERM
 	    break;
 	}
     }
+#elif defined (__linux__)
+    enif_make_map_put(env, map, am_pagesize, enif_make_long(env,sysconf(_SC_PAGESIZE)), &map);
+    enif_make_map_put(env, map, am_ncpu, enif_make_long(env,sysconf(_SC_NPROCESSORS_CONF)), &map);
 #endif
     return map;
 }
@@ -660,7 +667,7 @@ static void init(ErlNifEnv *env) {
     process_state[7] = enif_make_atom(env,"unknown");
 
     /* sysctl */
-#ifdef __APPLE__
+#if defined (__APPLE__)
     init_mib_code(CTL_HW, HW_MACHINE,  MIB_STRING,  0, "machine");
     init_mib_code(CTL_HW, HW_MODEL,    MIB_STRING,  1, "model");
     init_mib_code(CTL_HW, HW_NCPU,     MIB_INTEGER, 2, "ncpu");
@@ -674,6 +681,9 @@ static void init(ErlNifEnv *env) {
     init_mib_code(CTL_KERN, KERN_OSTYPE,    MIB_STRING,    9, "ostype");
     init_mib_code(CTL_KERN, KERN_VERSION,   MIB_STRING,   10, "kernel_version");
     init_mib_code(CTL_KERN, KERN_BOOTTIME,  MIB_TIMEVAL,  11, "boottime");
+#elif defined (__linux__)
+    am_pagesize = enif_make_atom(env,"pagesize");
+    am_ncpu = enif_make_atom(env,"ncpu");
 #endif
 }
 #undef init_mib_code
