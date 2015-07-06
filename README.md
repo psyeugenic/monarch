@@ -121,8 +121,8 @@ Previous `OS_Mon` Interface:
  * `set_almost_full_threshold(Float :: float()) -> ok`
 
 
-Vector
-------
+Netflix Vector
+--------------
 
 
 #### CPU
