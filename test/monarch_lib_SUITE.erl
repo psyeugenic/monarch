@@ -23,7 +23,7 @@ t_machine(Config) when is_list(Config) ->
     %% check keys
 
     #{boottime := Boottime,
-	  hostname := Hostname,
+      hostname := Hostname,
       kernel_version := KernelVersion,
       machine := Machine,
       memsize := Memsize,
@@ -56,7 +56,7 @@ t_machine(Config) when is_list(Config) ->
     M1 = monarch_lib:machine(),
 
     #{boottime := Boottime,
-	  hostname := Hostname,
+      hostname := Hostname,
       kernel_version := KernelVersion,
       machine := Machine,
       memsize := Memsize,
@@ -69,11 +69,17 @@ t_machine(Config) when is_list(Config) ->
       pagesize := PageSize} = M1,
 
     lists:foreach(fun(_) ->
-                M1 = monarch_lib:machine()
-        end, lists:seq(1,100)),
+                          M1 = monarch_lib:machine()
+                  end, lists:seq(1,100)),
     ok.
 
 t_memory(Config) when is_list(Config) ->
+    #{ total := Tot,
+       % active := _,
+       % inactive := _,
+       % wired := _,
+       free := Free } = monarch_lib:memory(),
+    true = Free =< Tot,
     ok.
 
 t_loadavg(Config) when is_list(Config) ->
