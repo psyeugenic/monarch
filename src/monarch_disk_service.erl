@@ -80,7 +80,7 @@ check_full_disks([],S0) ->
     S0.
 
 check_full_disk(#{ blocks := 0 }, S) -> S;
-check_full_disk(#{ bfree := Free, blocks := Total, mountpoint := Name },
+check_full_disk(#{ bfree := Free, blocks := Total, mountpoint := _Name },
 		#state{ ratio=R }= S) when Free/Total < R ->
     S;
 check_full_disk(_,S) -> S.
