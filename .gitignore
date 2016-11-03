@@ -6,4 +6,4 @@ priv/
 c_src/*.o
 doc/
 test/*.beam
-logs/
+_build/
