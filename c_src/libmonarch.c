@@ -16,11 +16,13 @@
 #include <sys/time.h>
 #include <sys/sysctl.h>
 #ifdef __APPLE__
+#include <mach/mach.h>
 #include <mach/host_info.h>
 #include <mach/mach_host.h>
 #include <mach/task_info.h>
 #include <mach/task.h>
 #endif
+
 
 /* getpwuid */
 #include <pwd.h>
@@ -86,6 +88,17 @@ static ERL_NIF_TERM am_ncpu;
 #endif
 /* loadavg */
 static ERL_NIF_TERM loadavg_key[3];
+/* util */
+static ERL_NIF_TERM am_cpu_id;
+/*static ERL_NIF_TERM am_user;*/
+static ERL_NIF_TERM am_nice_user;
+static ERL_NIF_TERM am_kernel;
+static ERL_NIF_TERM am_io_wait;
+static ERL_NIF_TERM am_idle;
+static ERL_NIF_TERM am_hard_irq;
+static ERL_NIF_TERM am_soft_irq;
+static ERL_NIF_TERM am_steal;
+
 /* processes */
 static ERL_NIF_TERM am_uid;
 static ERL_NIF_TERM am_pid;
@@ -606,8 +619,53 @@ static ERL_NIF_TERM monarch_processes(ErlNifEnv *env, int argc, const ERL_NIF_TE
 }
 
 static ERL_NIF_TERM monarch_cpu_util(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
-    return am_ok;
+    ERL_NIF_TERM res = enif_make_list(env, 0); /* NIL */
+    ERL_NIF_TERM map;
+#if defined (__APPLE__)
+    int i;
+    natural_t no_of_cpus;
+    processor_info_array_t info_array;
+    mach_msg_type_number_t info_count;
+    mach_port_t host_port;
+    kern_return_t error;
+    processor_cpu_load_info_data_t *cpu_load_info = NULL;
+
+    host_port = mach_host_self();
+    error = host_processor_info(host_port, PROCESSOR_CPU_LOAD_INFO,
+                                &no_of_cpus, &info_array, &info_count);
+
+    if (error != KERN_SUCCESS)
+        return enif_make_badarg(env);
+
+    mach_port_deallocate(mach_task_self(), host_port);
+    cpu_load_info = (processor_cpu_load_info_data_t *) info_array;
+
+    for (i = 0; i < no_of_cpus; ++i) {
+        map = enif_make_new_map(env);
+
+        enif_make_map_put(env, map, am_cpu_id,
+                enif_make_int(env,i), &map);
+        enif_make_map_put(env, map, am_user,
+                enif_make_ulong(env,cpu_load_info[i].cpu_ticks[CPU_STATE_USER]), &map);
+        enif_make_map_put(env, map, am_nice_user,
+                enif_make_ulong(env,cpu_load_info[i].cpu_ticks[CPU_STATE_NICE]), &map);
+        enif_make_map_put(env, map, am_kernel,
+                enif_make_ulong(env,cpu_load_info[i].cpu_ticks[CPU_STATE_SYSTEM]), &map);
+        enif_make_map_put(env, map, am_idle,
+                enif_make_ulong(env,cpu_load_info[i].cpu_ticks[CPU_STATE_IDLE]), &map);
+
+	res = enif_make_list_cell(env, map, res);
+    }	
+
+    error = vm_deallocate(mach_task_self(), (vm_address_t)info_array, info_count * sizeof(int));
+
+    if (error != KERN_SUCCESS)
+        return enif_make_badarg(env);
+
+#endif
+    return res;
 }
+
 /* boilerplate */
 #ifdef __APPLE__
 #define init_mib_code(Class,Code,Type,Ix,Name)     \
@@ -635,6 +693,17 @@ static void init(ErlNifEnv *env) {
     am_bfree      = enif_make_atom(env,"bfree");
     am_bsize      = enif_make_atom(env,"bsize");
     am_device     = enif_make_atom(env,"device");
+
+    /* util */
+    am_cpu_id    = enif_make_atom(env,"cpu_id");
+    /*am_user      = enif_make_atom(env,"user");*/
+    am_nice_user = enif_make_atom(env,"nice_user");
+    am_kernel    = enif_make_atom(env,"kernel");
+    am_io_wait   = enif_make_atom(env,"io_wait");
+    am_idle      = enif_make_atom(env,"idle");
+    am_hard_irq  = enif_make_atom(env,"hard_irq");
+    am_soft_irq  = enif_make_atom(env,"soft_irq");
+    am_steal     = enif_make_atom(env,"steal");
 
     /* loadavg */
     loadavg_key[0] = enif_make_int(env,1);
